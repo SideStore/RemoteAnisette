@@ -365,8 +365,16 @@ public struct AnisetteUser: Codable, Sendable {
     /// Provisions the "device" for use with anisette generation
     /// 
     /// Sets the adiPB attribute, does not run if adiPB is already set
-    static public func provision() async throws -> AnisetteUser {
-        var new = AnisetteUser()
+    public static func provision(
+        url: URL? = nil,
+        client_info: String? = nil,
+        user_agent: String? = nil,
+        serial: String? = nil,
+        local: String? = nil,
+        device: String? = nil,
+        session: URLSession = .shared
+    ) async throws -> AnisetteUser {
+        var new = AnisetteUser(url: url, client_info: client_info, user_agent: user_agent, serial: serial, local: local, device: device, session: session)
         await new.fetchProvisioningURLs()
         guard new.provisioningURLs != nil else { throw AnisetteError.missingProvisioningURL }
         let stream = URLSessionWebSocketStream(task: new.session.webSocketTask(with: new.provisioningRequest))
