@@ -29,13 +29,12 @@ final class URLSessionWebSocketStream: AsyncSequence, Sendable {
         }
 
         task.receive { [weak self] result in
-            guard let continuation = self?.continuation else { return }
-            do {
-                let message = try result.get()
+            guard let self = self, let continuation = self.continuation else { return }
+            switch result {
+            case .success(let message):
                 continuation.yield(message)
-                self?.waitForNextValue()
-            } catch {
-                continuation.finish(throwing: error)
+                self.waitForNextValue()
+            case .failure(let error): continuation.finish(throwing: error)
             }
         }
     }
@@ -355,32 +354,34 @@ public struct AnisetteUser: Codable, Sendable {
         provisioningURLs = try? ProvisioningURLs(plist: try await session.data(for: buildAppleRequest(url: "https://gsa.apple.com/grandslam/GsService2/lookup")).0)
     }
     
-    lazy var provisioningRequest: URLRequest = {
+    var provisioningRequest: URLRequest {
         var request = URLRequest(url: URL(string: "wss://" + url.host!)!.appendingPathComponent("v3/provisioning_session"))
         request.setValue("websocket", forHTTPHeaderField: "Upgrade")
         request.setValue("Upgrade", forHTTPHeaderField: "Connection")
         request.setValue("13", forHTTPHeaderField: "Sec-WebSocket-Version")
         return request
-    }()
+    }
     
     /// Provisions the "device" for use with anisette generation
     /// 
     /// Sets the adiPB attribute, does not run if adiPB is already set
-    public mutating func provision() async throws {
-        guard adiPB == nil else { return }
-        await fetchProvisioningURLs()
-        guard provisioningURLs != nil else { return }
-        let stream = URLSessionWebSocketStream(task: session.webSocketTask(with: provisioningRequest))
+    static public func provision() async throws -> AnisetteUser {
+        var new = AnisetteUser()
+        await new.fetchProvisioningURLs()
+        guard new.provisioningURLs != nil else { throw AnisetteError.missingProvisioningURL }
+        let stream = URLSessionWebSocketStream(task: new.session.webSocketTask(with: new.provisioningRequest))
         for try await message in stream.stream {
             switch message {
             case .string(let string):
                 if let d = string.data(using: .utf8),
                    let resp = try? AnisetteV3Message(json: d) {
                     switch resp.step {
-                    case .identifier: try await sendIdentifier(task: stream.task)
-                    case .start: try await startProvisioning(task: stream.task)
-                    case .end: try await endProvisioning(task: stream.task, try AnisetteV3EndMessage(json: d).cpim)
-                    case .success: adiPB = try AnisetteV3SuccessMessage(json: d).adi_pb
+                    case .identifier: try await new.sendIdentifier(task: stream.task)
+                    case .start: try await new.startProvisioning(task: stream.task)
+                    case .end: try await new.endProvisioning(task: stream.task, try AnisetteV3EndMessage(json: d).cpim)
+                    case .success:
+                        new.adiPB = try AnisetteV3SuccessMessage(json: d).adi_pb
+                        try await stream.cancel()
                     case .timeout: print("Timeout..")
                     case .error(let error): print("Error: \(error)")
                     }
@@ -389,6 +390,8 @@ public struct AnisetteUser: Codable, Sendable {
             @unknown default: break
             }
         }
+        guard new.adiPB != nil else { throw AnisetteError.missingAdiPb }
+        return new
     }
 
     func buildPlistBody(_ req: [String: String] = [:]) throws -> Data {

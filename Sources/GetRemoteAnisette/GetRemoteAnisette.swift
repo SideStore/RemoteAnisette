@@ -17,16 +17,15 @@ struct GetRemoteAnisette {
         if let u = try? AnisetteUser(file: confPath) {
             print(try await u.fetchHeaders())
         } else {
-            var u = AnisetteUser()
             do {
-                try await u.provision()
+                var u = try await AnisetteUser.provision()
+                guard u.adiPB != nil else { return print("Something went wrong, nil adi.pb O_o") }
+                if confPath.path != "/dev/null" {
+                    print("provisioned adi.pb, saving to \(confPath)")
+                    u.write(to: confPath)
+                }
+                print(try await u.fetchHeaders())
             } catch { if (error as NSError).code != 57 { print(error) } }
-            guard u.adiPB != nil else { return print("Something went wrong, nil adi.pb O_o") }
-            if confPath.path != "/dev/null" {
-                print("provisioned adi.pb, saving to \(confPath)")
-                u.write(to: confPath)
-            }
-            print(try await u.fetchHeaders())
         }
     }
 }
