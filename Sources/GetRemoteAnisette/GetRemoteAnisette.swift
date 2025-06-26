@@ -18,7 +18,7 @@ struct GetRemoteAnisette {
             print(try await u.fetchHeaders())
         } else {
             do {
-                var u = try await AnisetteUser.provision()
+                let u = try await AnisetteUser.provision(serial: "ani.sidestore.io")
                 guard u.adiPB != nil else { return print("Something went wrong, nil adi.pb O_o") }
                 if confPath.path != "/dev/null" {
                     print("provisioned adi.pb, saving to \(confPath)")
