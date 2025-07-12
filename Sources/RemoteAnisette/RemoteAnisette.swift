@@ -308,6 +308,7 @@ public struct AnisetteUser: Codable, Sendable {
         let ani = try await fetchV3Anisette()
         return [
             "X-Apple-Client-Time": Date().anisetteFormat,
+            "X-Mme-Client-Info": client_info,
             "X-Apple-I-TimeZone": Calendar.current.timeZone.abbreviation() ?? "UTC",
             "X-Apple-Locale": Locale.current.identifier,
             "X-Apple-I-MD": ani.oneTimePassword,
