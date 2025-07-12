@@ -315,7 +315,7 @@ public struct AnisetteUser: Codable, Sendable {
             "X-Apple-I-MD-M": ani.machineID,
             "X-Apple-I-MD-RINFO": ani.routingInfo,
             "X-Apple-I-SRL-NO": serial,
-            "X-Mme-Drvice-Id": deviceID,
+            "X-Mme-Device-Id": deviceID,
         ]
     }
     
